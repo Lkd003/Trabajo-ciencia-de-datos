@@ -1,0 +1,26 @@
+{
+    "id": "D003AC97",
+    "path": "~/mi_trabajo/Trabajo-ciencia-de-datos/mi_trabajo/script/02_limpieza.R",
+    "project_path": "script/02_limpieza.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": true,
+    "created": 1780938491216.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "5,8",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1779736558,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1780938669809,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,123 @@
+library(tidyverse)
+
+# =============================================================================
+# 02_limpieza.R
+# Limpieza y unión de fuentes: WDI + Argendata
+# Grupo 11
+# =============================================================================
+
+# Países del análisis (misma lista que en 01_descarga.R)
+paises_seleccionados <- c("ARG", "BRA", "MEX", "CHL", "COL",
+                          "USA", "DEU", "GBR", "FRA", "TUR",
+                          "CHN", "IDN", "KOR", "ESP", "CRI")
+
+# -----------------------------------------------------------------------------
+# 1. LECTURA DE DATOS CRUDOS
+# -----------------------------------------------------------------------------
+
+datos_wdi       <- read.csv("raw/wdi_raw.csv")
+datos_argendata <- read.csv("raw/pib_indust_per_capita_comparado.csv")
+
+# -----------------------------------------------------------------------------
+# 2. EXPLORACIÓN INICIAL
+# -----------------------------------------------------------------------------
+
+glimpse(datos_wdi)
+glimpse(datos_argendata)
+
+# Ver nombres de países en cada fuente (para detectar problemas de join)
+cat("Países en WDI:\n")
+print(sort(unique(datos_wdi$iso3c)))
+
+cat("\nPaíses en Argendata:\n")
+print(sort(unique(datos_argendata$geocodigoFundar)))
+
+# -----------------------------------------------------------------------------
+# 3. LIMPIEZA WDI
+# -----------------------------------------------------------------------------
+
+datos_wdi_limpio <- datos_wdi %>%
+  rename(
+    codigo_pais   = iso3c,
+    pais          = country,
+    anio          = year,
+    coef_gini     = gini,
+    nivel_ingreso = income
+  ) %>%
+  filter(anio >= 1970 & anio <= 2023) %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%   # solo los 15 países
+  filter(!is.na(codigo_pais)) %>%
+  select(codigo_pais, pais, anio, pbi_pc, coef_gini,
+         poblacion, exp_servicios, region, nivel_ingreso)
+
+# -----------------------------------------------------------------------------
+# 4. LIMPIEZA ARGENDATA
+# -----------------------------------------------------------------------------
+
+datos_argendata_limpio <- datos_argendata %>%
+  rename(
+    codigo_pais       = geocodigoFundar,
+    pais              = geonombreFundar,
+    anio              = anio,
+    pbi_indust_pc     = gdp_indust_pc,
+    pbi_indust_pc_idx = gdp_indust_pc_indice
+  ) %>%
+  filter(anio >= 1970 & anio <= 2023) %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%   # solo los 15 países
+  select(codigo_pais, anio, pbi_indust_pc, pbi_indust_pc_idx)
+
+# -----------------------------------------------------------------------------
+# 5. UNIÓN DE TABLAS
+# -----------------------------------------------------------------------------
+
+datos_panel <- datos_wdi_limpio %>%
+  left_join(datos_argendata_limpio, by = c("codigo_pais", "anio"))
+
+# -----------------------------------------------------------------------------
+# 6. VERIFICACIÓN DEL JOIN
+# Confirma que cada país tiene datos de ambas fuentes
+# -----------------------------------------------------------------------------
+
+cat("\n--- Verificación del join por país ---\n")
+datos_panel %>%
+  group_by(codigo_pais) %>%
+  summarise(
+    tiene_pbi_pc        = any(!is.na(pbi_pc)),
+    tiene_argendata     = any(!is.na(pbi_indust_pc_idx)),
+    tiene_gini          = any(!is.na(coef_gini)),
+    n_filas             = n()
+  ) %>%
+  print(n = 20)
+
+# Alerta si algún país no tiene datos de Argendata
+sin_argendata <- datos_panel %>%
+  group_by(codigo_pais) %>%
+  summarise(tiene_argendata = any(!is.na(pbi_indust_pc_idx))) %>%
+  filter(!tiene_argendata) %>%
+  pull(codigo_pais)
+
+if (length(sin_argendata) > 0) {
+  cat("\nATENCIÓN: estos países no tienen datos de Argendata:", 
+      paste(sin_argendata, collapse = ", "), "\n")
+} else {
+  cat("\nTodos los países tienen datos de Argendata.\n")
+}
+
+# -----------------------------------------------------------------------------
+# 7. RESUMEN FINAL
+# -----------------------------------------------------------------------------
+
+cat("\n--- Resumen del panel final ---\n")
+cat("Filas totales:", nrow(datos_panel), "\n")
+cat("Países:", length(unique(datos_panel$codigo_pais)), "\n")
+cat("Años:", min(datos_panel$anio), "a", max(datos_panel$anio), "\n")
+cat("% de Gini disponibles:", 
+    round(mean(!is.na(datos_panel$coef_gini)) * 100, 1), "%\n")
+
+# -----------------------------------------------------------------------------
+# 8. GUARDAR PANEL LIMPIO
+# (para que 03_analisis.R y 04_graficos.R puedan leerlo de forma independiente)
+# -----------------------------------------------------------------------------
+
+write.csv(datos_panel, "raw/datos_panel.csv", row.names = FALSE)
+cat("\nPanel guardado en raw/datos_panel.csv\n")
