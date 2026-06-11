@@ -12,7 +12,7 @@ paises_seleccionados <- c("ARG","BRA","MEX","CHL","COL",
                           "USA","DEU","GBR","FRA","TUR",
                           "CHN","IDN","KOR","ESP","CRI")
 
-paises_repr <- c("CHN", "KOR", "ARG", "ESP")
+paises_repr <- c("CHN", "KOR", "ARG", "BRA")
 
 # =============================================================================
 # CLASIFICACIÓN DE GRUPOS
@@ -52,7 +52,7 @@ trayectorias <- panel_indexado %>%
   mutate(pbi_pc_idx = pbi_pc_mean / base * 100)
 
 trayectorias %>%
-  filter(anio %in% c(1970, 1990, 2010, 2023)) %>%
+  filter(anio %in% c(1970, 1990, 2010, 2023), !is.na(grupo)) %>%
   select(grupo, anio, pbi_pc_idx) %>%
   pivot_wider(names_from = anio, values_from = pbi_pc_idx) %>%
   write.csv("output/tablas/tabla_trayectorias.csv", row.names = FALSE)
@@ -162,9 +162,17 @@ datos_ols <- gini_temporal %>%
 ols_resultado <- lm(coef_gini ~ variacion_idx, data = datos_ols)
 print(summary(ols_resultado))
 
-as.data.frame(confint(ols_resultado)) %>%
-  rownames_to_column("termino") %>%
-  mutate(estimacion = coef(ols_resultado)) %>%
+resumen_ols <- summary(ols_resultado)
+
+bind_cols(
+  as.data.frame(confint(ols_resultado)) %>% rownames_to_column("termino"),
+  tibble(estimacion = coef(ols_resultado))
+) %>%
+  mutate(
+    r_cuadrado     = resumen_ols$r.squared,
+    r_cuadrado_adj = resumen_ols$adj.r.squared,
+    p_valor        = resumen_ols$coefficients[, "Pr(>|t|)"]
+  ) %>%
   write.csv("output/tablas/tabla_ols.csv", row.names = FALSE)
 
 # Confirmar archivos guardados
