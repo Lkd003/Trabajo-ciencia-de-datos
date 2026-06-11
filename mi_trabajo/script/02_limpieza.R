@@ -58,3 +58,5 @@ datos_argendata_limpio <- datos_argendata %>%
 #Union de tablas
 datos_panel <- datos_wdi_limpio %>%
   left_join(datos_argendata_limpio, by = c("codigo_pais", "anio"))
+
+write.csv(datos_panel, "raw/datos_panel.csv", row.names = FALSE)

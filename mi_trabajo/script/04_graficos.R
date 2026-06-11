@@ -121,7 +121,7 @@ ggsave("output/graficos/grafico_comunicacional.png", g1,
 # Scatter Gini vs. índice industrial con pares destacados
 # =============================================================================
 
-paises_destacados <- c("CHN", "KOR", "ARG", "ESP")
+paises_destacados <- c("CHN", "KOR", "DEU", "ARG", "BRA", "ESP")
 
 scatter_data2 <- gini_temporal %>%
   left_join(variacion_industrial %>% select(codigo_pais, grupo),
@@ -132,84 +132,85 @@ scatter_data2 <- gini_temporal %>%
   ) %>%
   mutate(
     destacado = codigo_pais %in% paises_destacados,
-    par = case_when(
-      codigo_pais == "CHN" ~ "China",
-      codigo_pais == "KOR" ~ "Corea del Sur",
-      codigo_pais == "ARG" ~ "Argentina",
-      codigo_pais == "ESP" ~ "España",
-      TRUE ~ "Otros"
-    ),
-    color_grupo = case_when(
-      codigo_pais %in% c("CHN", "KOR") ~ "Más industrializado",
-      codigo_pais %in% c("ARG", "ESP") ~ "Menos industrializado",
-      TRUE ~ "Otros"
+    letra = case_when(
+      año_ref == 1970 ~ "A", año_ref == 1990 ~ "B",
+      año_ref == 2010 ~ "C", año_ref == 2023 ~ "D"
     )
   )
 
-promedios <- scatter_data2 %>%
-  filter(destacado) %>%
-  group_by(color_grupo, año_ref) %>%
-  summarise(
-    coef_gini         = mean(coef_gini, na.rm = TRUE),
-    pbi_indust_pc_idx = mean(pbi_indust_pc_idx, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  mutate(par = case_when(
-    color_grupo == "Más industrializado"   ~ "Chn + Kor",
-    color_grupo == "Menos industrializado" ~ "Arg + Esp"
-  ))
+pares <- list(
+  list(paises = c("CHN", "KOR"), nombre = "Chn + Kor"),
+  list(paises = c("KOR", "DEU"), nombre = "Kor + Deu"),
+  list(paises = c("ARG", "BRA"), nombre = "Arg + Bra"),
+  list(paises = c("ARG", "ESP"), nombre = "Arg + Esp")
+)
+
+promedios <- map_dfr(pares, function(p) {
+  scatter_data2 %>%
+    filter(codigo_pais %in% p$paises) %>%
+    group_by(año_ref) %>%
+    summarise(
+      coef_gini = mean(coef_gini, na.rm = TRUE),
+      pbi_indust_pc_idx = mean(pbi_indust_pc_idx, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      par = p$nombre,
+      letra = case_when(
+        año_ref == 1970 ~ "A", año_ref == 1990 ~ "B",
+        año_ref == 2010 ~ "C", año_ref == 2023 ~ "D"
+      )
+    )
+})
 
 titulo_g2 <- sprintf(
   "Mayor industrialización se asocia con <span style='color:%s'>**menor desigualdad**</span>",
   owid_azul)
 
 g2 <- ggplot() +
-  geom_point(data = scatter_data2 %>% filter(!destacado),
-             aes(x = coef_gini, y = pbi_indust_pc_idx,
-                 shape = factor(año_ref)),
-             color = "gray80", size = 2, alpha = 0.6) +
+  geom_text(data = scatter_data2 %>% filter(!destacado),
+            aes(x = pbi_indust_pc_idx, y = coef_gini, label = letra),
+            color = "gray80", size = 2.5, alpha = 0.6,
+            show.legend = FALSE) +
   geom_smooth(data = scatter_data2,
-              aes(x = coef_gini, y = pbi_indust_pc_idx),
+              aes(x = pbi_indust_pc_idx, y = coef_gini),
               method = "lm", se = TRUE,
               color = "gray50", fill = "gray90",
               linewidth = 0.7, linetype = "dashed") +
-  geom_point(data = scatter_data2 %>% filter(destacado),
-             aes(x = coef_gini, y = pbi_indust_pc_idx,
-                 color = color_grupo, shape = factor(año_ref)),
-             size = 3.5, alpha = 0.5) +
   geom_line(data = promedios,
-            aes(x = coef_gini, y = pbi_indust_pc_idx,
-                color = color_grupo),
+            aes(x = pbi_indust_pc_idx, y = coef_gini,
+                color = par, linetype = par),
             linewidth = 1) +
-  geom_point(data = promedios,
-             aes(x = coef_gini, y = pbi_indust_pc_idx,
-                 color = color_grupo, shape = factor(año_ref)),
-             size = 5) +
+  geom_text(data = promedios,
+            aes(x = pbi_indust_pc_idx, y = coef_gini,
+                color = par, label = letra),
+            size = 4.5, fontface = "bold",
+            show.legend = FALSE) +
   geom_text_repel(
     data = promedios %>% filter(año_ref == 2023),
-    aes(x = coef_gini, y = pbi_indust_pc_idx,
-        label = par, color = color_grupo),
+    aes(x = pbi_indust_pc_idx, y = coef_gini,
+        label = par, color = par),
     size = 3.2, fontface = "bold",
-    nudge_x = 1, box.padding = 0.4,
+    nudge_y = 1, box.padding = 0.4,
     show.legend = FALSE
   ) +
   scale_color_manual(values = c(
-    "Más industrializado"   = owid_azul,
-    "Menos industrializado" = owid_rojo,
-    "Otros"                 = "gray80"
+    "Chn + Kor" = owid_azul, "Kor + Deu" = owid_azul,
+    "Arg + Bra" = owid_rojo, "Arg + Esp" = owid_rojo
   )) +
-  scale_shape_manual(
-    values = c("1970" = 1, "1990" = 2, "2010" = 3, "2023" = 19),
-    name = "Año de referencia"
-  ) +
-  scale_y_log10(labels = scales::comma) +
+  scale_linetype_manual(values = c(
+    "Chn + Kor" = "solid", "Kor + Deu" = "dashed",
+    "Arg + Bra" = "solid", "Arg + Esp" = "dashed"
+  )) +
+  guides(color = guide_legend(title = "Par"),
+         linetype = guide_legend(title = "Par")) +
+  scale_x_log10(labels = scales::comma) +
   labs(
     title    = titulo_g2,
-    subtitle = "Eje X: coeficiente de Gini. Eje Y: índice de PBI industrial per cápita (base 100 = 1970, escala log).<br>Líneas conectan el promedio de cada par en los 4 años de referencia: 1970, 1990, 2010 y último disponible.",
+    subtitle = "Eje X: índice de PBI industrial per cápita (base 100 = 1970, escala log). Eje Y: coeficiente de Gini.<br>**A** = 1970 · **B** = 1990 · **C** = 2010 · **D** = último año disponible.",
     caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI).",
-    x = "Coeficiente de Gini",
-    y = "Índice industrial per cápita (log)",
-    color = "Grupo"
+    x = "Índice industrial per cápita (log)",
+    y = "Coeficiente de Gini"
   ) +
   theme_owid() +
   theme(
