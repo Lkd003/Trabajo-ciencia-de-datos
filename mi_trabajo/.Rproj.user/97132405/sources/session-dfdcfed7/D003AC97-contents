@@ -23,7 +23,14 @@ datos_argendata <- read.csv("raw/pib_indust_per_capita_comparado.csv")
 # -----------------------------------------------------------------------------
 
 glimpse(datos_wdi)
+dim(datos_wdi)
+str(datos_wdi)
+summary(datos_wdi)
+
 glimpse(datos_argendata)
+dim(datos_argendata)
+str(datos_argendata)
+summary(datos_argendata)
 
 # Ver nombres de países en cada fuente (para detectar problemas de join)
 cat("Países en WDI:\n")

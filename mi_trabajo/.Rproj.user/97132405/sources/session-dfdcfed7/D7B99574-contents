@@ -1,0 +1,19 @@
+library(WDI)
+library(tidyverse)
+
+#  Descarga de datos
+wdi_raw <- WDI(
+  country = "all",
+  indicator = c(
+    pbi_pc        = "NY.GDP.PCAP.KD",      # PBI per cápita USD constantes 2015
+    gini          = "SI.POV.GINI",          # Coeficiente de Gini
+    poblacion     = "SP.POP.TOTL",          # Población total
+    exp_servicios = "BX.GSR.NFSV.CD"        # Exportaciones de servicios
+  ),
+  start = 1970,
+  end   = 2023,
+  extra = TRUE      
+)
+
+# Para guardar en raw
+write.csv(wdi_raw, "raw/wdi_raw.csv", row.names = FALSE)
