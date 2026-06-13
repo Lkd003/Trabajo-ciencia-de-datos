@@ -65,12 +65,7 @@ datos_argendata_limpio <- datos_argendata %>%
 datos_panel <- datos_wdi_limpio %>%
   left_join(datos_argendata_limpio, by = c("codigo_pais", "anio"))
 
-<<<<<<< HEAD
-write.csv(datos_panel, "input/datos_panel.csv", row.names = FALSE)
-=======
-
 # Verificar que los 15 paises tienen datos de ambas fuentes
 cat("Paises en el panel:", length(unique(datos_panel$codigo_pais)), "\n")
 
-write.csv(datos_panel, "raw/datos_panel.csv", row.names = FALSE)
->>>>>>> 22d15cc6ecb61afee2955f6b6e2b371793f0c062
+write.csv(datos_panel, "input/datos_panel.csv", row.names = FALSE)
