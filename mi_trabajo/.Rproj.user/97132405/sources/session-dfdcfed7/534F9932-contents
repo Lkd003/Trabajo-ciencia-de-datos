@@ -1,0 +1,226 @@
+# =============================================================================
+# 04_graficos.R
+# Gráfico comunicacional y exploratorio
+# Ciencia de Datos — Grupo 11
+# =============================================================================
+
+library(tidyverse)
+library(ggtext)
+library(ggrepel)
+library(patchwork)
+
+# ── Paleta y tema ─────────────────────────────────────────────────────────────
+owid_azul <- "#4C6A9C"
+owid_rojo <- "#B13507"
+owid_gris <- "#C9C9C9"
+
+theme_owid <- function(base_size = 13) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.title.position   = "plot",
+      plot.caption.position = "plot",
+      plot.title    = element_markdown(face = "bold", size = rel(1.3),
+                                       colour = "#1d1d1d", lineheight = 1.2,
+                                       margin = margin(b = 4)),
+      plot.subtitle = element_markdown(size = rel(0.98), colour = "#5b5b5b",
+                                       margin = margin(b = 16)),
+      plot.caption  = element_markdown(hjust = 0, size = rel(0.72),
+                                       colour = "#8a8a8a", margin = margin(t = 14)),
+      axis.title    = element_blank(),
+      axis.text     = element_text(colour = "#5b5b5b"),
+      axis.ticks    = element_blank(),
+      panel.grid.major.y = element_line(colour = "#e6e6e6", linewidth = 0.4),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor   = element_blank(),
+      legend.position    = "none",
+      plot.margin = margin(t = 14, r = 100, b = 10, l = 16)
+    )
+}
+
+# =============================================================================
+# GRÁFICO 1 — COMUNICACIONAL
+# Trayectorias de PBI per cápita indexado por grupo
+# =============================================================================
+
+benchmark_mundial <- datos_panel %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%
+  group_by(anio) %>%
+  summarise(pbi_pc_idx = mean(pbi_pc, na.rm = TRUE)) %>%
+  mutate(pbi_pc_idx = pbi_pc_idx / first(pbi_pc_idx) * 100,
+         grupo = "Promedio de los 15 países")
+
+base_1970 <- panel_indexado %>%
+  filter(anio == 1970) %>%
+  group_by(grupo) %>%
+  summarise(base = mean(pbi_pc, na.rm = TRUE))
+
+trayectorias <- panel_indexado %>%
+  filter(!is.na(pbi_pc)) %>%
+  group_by(grupo, anio) %>%
+  summarise(pbi_pc_mean = mean(pbi_pc, na.rm = TRUE), .groups = "drop") %>%
+  left_join(base_1970, by = "grupo") %>%
+  mutate(pbi_pc_idx = pbi_pc_mean / base * 100) %>%
+  select(anio, grupo, pbi_pc_idx)
+
+datos_grafico1 <- bind_rows(trayectorias, benchmark_mundial)
+
+punto_1990 <- datos_grafico1 %>%
+  filter(anio == 1990, grupo == "Menos industrializado") %>%
+  pull(pbi_pc_idx)
+
+titulo_g1 <- sprintf(
+  "Los países <span style='color:%s'>**más industrializados**</span> crecieron más del doble que el <span style='color:%s'>**resto**</span>",
+  owid_azul, owid_rojo)
+
+g1 <- ggplot(datos_grafico1, aes(x = anio, y = pbi_pc_idx, color = grupo)) +
+  geom_line(aes(linewidth = grupo)) +
+  scale_linewidth_manual(values = c(
+    "Más industrializado"       = 1.4,
+    "Menos industrializado"     = 1.2,
+    "Promedio de los 15 países" = 0.7
+  )) +
+  scale_color_manual(values = c(
+    "Más industrializado"       = owid_azul,
+    "Menos industrializado"     = owid_rojo,
+    "Promedio de los 15 países" = owid_gris
+  )) +
+  annotate("text", x = 2024, y = 375,
+           label = "Más\nindustrializado", hjust = 0, size = 3,
+           fontface = "bold", color = owid_azul) +
+  annotate("text", x = 2024, y = 240,
+           label = "Menos\nindustrializado", hjust = 0, size = 3,
+           fontface = "bold", color = owid_rojo) +
+  annotate("text", x = 2024, y = 280,
+           label = "Promedio\n15 países", hjust = 0, size = 3,
+           color = "gray60") +
+  annotate("segment",
+           x = 1990, xend = 1996,
+           y = punto_1990, yend = punto_1990 - 40,
+           linewidth = 0.45, colour = "#555555",
+           arrow = arrow(length = unit(2.2, "mm"),
+                         type = "closed", ends = "first")) +
+  annotate("text",
+           x = 1997, y = punto_1990 - 40,
+           hjust = 0, size = 3, lineheight = 0.95, colour = "#555555",
+           label = "Desde 1990 la brecha\nse abre sostenidamente") +
+  scale_x_continuous(breaks = seq(1970, 2020, by = 10),
+                     expand = expansion(mult = c(0.01, 0.22))) +
+  scale_y_continuous(breaks = seq(100, 400, by = 50)) +
+  labs(
+    title    = titulo_g1,
+    subtitle = "PBI per cápita indexado (base 100 = 1970). Promedio simple por grupo de países.",
+    caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI). Grupos definidos por variación del índice de PBI industrial per cápita 1970–2023."
+  ) +
+  theme_owid()
+
+ggsave("output/graficos/grafico_comunicacional.png", g1,
+       width = 10, height = 6, dpi = 300, bg = "white")
+
+# =============================================================================
+# GRÁFICO 2 — EXPLORATORIO
+# Scatter Gini vs. índice industrial con pares destacados
+# =============================================================================
+
+paises_destacados <- c("CHN", "KOR", "ARG", "ESP")
+
+scatter_data2 <- gini_temporal %>%
+  left_join(variacion_industrial %>% select(codigo_pais, grupo),
+            by = "codigo_pais") %>%
+  left_join(
+    datos_panel %>% select(codigo_pais, anio, pbi_indust_pc_idx),
+    by = c("codigo_pais", "anio_real" = "anio")
+  ) %>%
+  mutate(
+    destacado = codigo_pais %in% paises_destacados,
+    par = case_when(
+      codigo_pais == "CHN" ~ "China",
+      codigo_pais == "KOR" ~ "Corea del Sur",
+      codigo_pais == "ARG" ~ "Argentina",
+      codigo_pais == "ESP" ~ "España",
+      TRUE ~ "Otros"
+    ),
+    color_grupo = case_when(
+      codigo_pais %in% c("CHN", "KOR") ~ "Más industrializado",
+      codigo_pais %in% c("ARG", "ESP") ~ "Menos industrializado",
+      TRUE ~ "Otros"
+    )
+  )
+
+promedios <- scatter_data2 %>%
+  filter(destacado) %>%
+  group_by(color_grupo, año_ref) %>%
+  summarise(
+    coef_gini         = mean(coef_gini, na.rm = TRUE),
+    pbi_indust_pc_idx = mean(pbi_indust_pc_idx, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(par = case_when(
+    color_grupo == "Más industrializado"   ~ "Chn + Kor",
+    color_grupo == "Menos industrializado" ~ "Arg + Esp"
+  ))
+
+titulo_g2 <- sprintf(
+  "Mayor industrialización se asocia con <span style='color:%s'>**menor desigualdad**</span>",
+  owid_azul)
+
+g2 <- ggplot() +
+  geom_point(data = scatter_data2 %>% filter(!destacado),
+             aes(x = coef_gini, y = pbi_indust_pc_idx,
+                 shape = factor(año_ref)),
+             color = "gray80", size = 2, alpha = 0.6) +
+  geom_smooth(data = scatter_data2,
+              aes(x = coef_gini, y = pbi_indust_pc_idx),
+              method = "lm", se = TRUE,
+              color = "gray50", fill = "gray90",
+              linewidth = 0.7, linetype = "dashed") +
+  geom_point(data = scatter_data2 %>% filter(destacado),
+             aes(x = coef_gini, y = pbi_indust_pc_idx,
+                 color = color_grupo, shape = factor(año_ref)),
+             size = 3.5, alpha = 0.5) +
+  geom_line(data = promedios,
+            aes(x = coef_gini, y = pbi_indust_pc_idx,
+                color = color_grupo),
+            linewidth = 1) +
+  geom_point(data = promedios,
+             aes(x = coef_gini, y = pbi_indust_pc_idx,
+                 color = color_grupo, shape = factor(año_ref)),
+             size = 5) +
+  geom_text_repel(
+    data = promedios %>% filter(año_ref == 2023),
+    aes(x = coef_gini, y = pbi_indust_pc_idx,
+        label = par, color = color_grupo),
+    size = 3.2, fontface = "bold",
+    nudge_x = 1, box.padding = 0.4,
+    show.legend = FALSE
+  ) +
+  scale_color_manual(values = c(
+    "Más industrializado"   = owid_azul,
+    "Menos industrializado" = owid_rojo,
+    "Otros"                 = "gray80"
+  )) +
+  scale_shape_manual(
+    values = c("1970" = 1, "1990" = 2, "2010" = 3, "2023" = 19),
+    name = "Año de referencia"
+  ) +
+  scale_y_log10(labels = scales::comma) +
+  labs(
+    title    = titulo_g2,
+    subtitle = "Eje X: coeficiente de Gini. Eje Y: índice de PBI industrial per cápita (base 100 = 1970, escala log).<br>Líneas conectan el promedio de cada par en los 4 años de referencia: 1970, 1990, 2010 y último disponible.",
+    caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI).",
+    x = "Coeficiente de Gini",
+    y = "Índice industrial per cápita (log)",
+    color = "Grupo"
+  ) +
+  theme_owid() +
+  theme(
+    legend.position = "right",
+    legend.title    = element_text(size = 9, face = "bold"),
+    legend.text     = element_text(size = 8),
+    axis.title      = element_text(size = 9, color = "gray40")
+  )
+
+ggsave("output/graficos/grafico_exploratorio.png", g2,
+       width = 11, height = 7, dpi = 300, bg = "white")
+
+cat("\nGráficos guardados en output/graficos/:\n")
+list.files("output/graficos/")

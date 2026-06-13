@@ -9,10 +9,6 @@ library(ggtext)
 library(ggrepel)
 library(patchwork)
 
-# Agregue recien para que corra 
-datos_panel <- read.csv("raw/datos_panel.csv")
-panel_indexado <- read.csv("raw/panel_indexado.csv")
-gini_temporal  <- read.csv("raw/gini_temporal.csv")
 # ── Paleta y tema ─────────────────────────────────────────────────────────────
 owid_azul <- "#4C6A9C"
 owid_rojo <- "#B13507"

@@ -1,5 +1,9 @@
 library(tidyverse)
 
+#paises que se van a utilizar 
+paises_seleccionados <- c("ARG", "BRA", "MEX", "CHL", "COL",
+                          "USA", "DEU", "GBR", "FRA", "TUR",
+                          "CHN", "IDN", "KOR", "ESP", "CRI")
 # Datos crudos 
 
 datos_wdi <- read.csv("raw/wdi_raw.csv")
@@ -40,6 +44,7 @@ datos_wdi_limpio <- datos_wdi %>%
   ) %>%
   filter(anio >= 1970 & anio <= 2023) %>%
   filter(!is.na(codigo_pais)) %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%
   select(codigo_pais, pais, anio, pbi_pc, coef_gini,
          poblacion, exp_servicios, region, nivel_ingreso)
 
@@ -53,10 +58,19 @@ datos_argendata_limpio <- datos_argendata %>%
     pbi_indust_pc_idx  = gdp_indust_pc_indice
   ) %>%
   filter(anio >= 1970 & anio <= 2023) %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%
   select(codigo_pais, anio, pbi_indust_pc, pbi_indust_pc_idx)
 
 #Union de tablas
 datos_panel <- datos_wdi_limpio %>%
   left_join(datos_argendata_limpio, by = c("codigo_pais", "anio"))
 
+<<<<<<< HEAD
 write.csv(datos_panel, "input/datos_panel.csv", row.names = FALSE)
+=======
+
+# Verificar que los 15 paises tienen datos de ambas fuentes
+cat("Paises en el panel:", length(unique(datos_panel$codigo_pais)), "\n")
+
+write.csv(datos_panel, "raw/datos_panel.csv", row.names = FALSE)
+>>>>>>> 22d15cc6ecb61afee2955f6b6e2b371793f0c062

@@ -5,12 +5,6 @@
 # =============================================================================
 
 library(tidyverse)
-#Agregue para que corra 
-datos_panel <- read.csv("raw/datos_panel.csv")
-#Carpeta output
-# Crear carpetas de output si no existen
-dir.create("output/tablas", recursive = TRUE, showWarnings = FALSE)
-dir.create("output/graficos", recursive = TRUE, showWarnings = FALSE)
 
 # Países seleccionados (Polonia reemplazada por Corea del Sur por falta de
 # datos de PBI per cápita en 1970)
@@ -172,10 +166,6 @@ as.data.frame(confint(ols_resultado)) %>%
   rownames_to_column("termino") %>%
   mutate(estimacion = coef(ols_resultado)) %>%
   write.csv("output/tablas/tabla_ols.csv", row.names = FALSE)
-
-
-write.csv(panel_indexado, "raw/panel_indexado.csv", row.names = FALSE)
-write.csv(gini_temporal,  "raw/gini_temporal.csv",  row.names = FALSE)
 
 # Confirmar archivos guardados
 cat("\nArchivos guardados en output/tablas/:\n")
