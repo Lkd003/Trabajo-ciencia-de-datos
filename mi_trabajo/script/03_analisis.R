@@ -1,23 +1,19 @@
-# =============================================================================
 # 03_analisis.R
-# Métodos estadísticos para H1 y H2
-# Ciencia de Datos — Grupo 11
-# =============================================================================
 
 library(tidyverse)
 
-# Países seleccionados (Polonia reemplazada por Corea del Sur por falta de
-# datos de PBI per cápita en 1970)
+#lectura
+datos_panel <- read.csv("input/datos_panel.csv")
+
+# Países seleccionados 
 paises_seleccionados <- c("ARG","BRA","MEX","CHL","COL",
                           "USA","DEU","GBR","FRA","TUR",
                           "CHN","IDN","KOR","ESP","CRI")
 
 paises_repr <- c("CHN", "KOR", "ARG", "BRA")
 
-# =============================================================================
 # CLASIFICACIÓN DE GRUPOS
 # Variación del índice industrial 1970-2023, corte por mediana
-# =============================================================================
 
 variacion_industrial <- datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
@@ -35,9 +31,7 @@ panel_indexado <- datos_panel %>%
   left_join(variacion_industrial %>% select(codigo_pais, variacion_idx, grupo),
             by = "codigo_pais")
 
-# =============================================================================
 # MÉTODO 1 — Indexación y trayectorias (H1)
-# =============================================================================
 
 base_1970 <- panel_indexado %>%
   filter(anio == 1970) %>%
@@ -57,10 +51,9 @@ trayectorias %>%
   pivot_wider(names_from = anio, values_from = pbi_pc_idx) %>%
   write.csv("output/tablas/tabla_trayectorias.csv", row.names = FALSE)
 
-# =============================================================================
 # MÉTODO 2 — Descomposición de series temporales (H1)
 # Países representativos: China + Corea del Sur vs. Argentina + España
-# =============================================================================
+
 
 descomposicion_resultados <- datos_panel %>%
   filter(codigo_pais %in% paises_repr, !is.na(pbi_pc)) %>%
@@ -178,3 +171,8 @@ bind_cols(
 # Confirmar archivos guardados
 cat("\nArchivos guardados en output/tablas/:\n")
 list.files("output/tablas/")
+
+#escritura de archivos
+write.csv(panel_indexado, "input/panel_indexado.csv", row.names = FALSE)
+write.csv(variacion_industrial, "input/variacion_industrial.csv", row.names = FALSE)
+write.csv(gini_temporal, "input/gini_temporal.csv", row.names = FALSE)

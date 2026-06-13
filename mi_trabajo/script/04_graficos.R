@@ -1,16 +1,14 @@
-# =============================================================================
-# 04_graficos.R
+
 # Gráfico comunicacional y exploratorio
-# Ciencia de Datos — Grupo 11
-# =============================================================================
+
 
 library(tidyverse)
 library(ggtext)
 library(ggrepel)
 library(patchwork)
 
-# ── Paleta y tema ─────────────────────────────────────────────────────────────
-owid_azul <- "#4C6A9C"
+# Paleta y tema 
+owid_azul <- "#4C7A9C"
 owid_rojo <- "#B13507"
 owid_gris <- "#C9C9C9"
 
@@ -37,10 +35,7 @@ theme_owid <- function(base_size = 13) {
     )
 }
 
-# =============================================================================
-# GRÁFICO 1 — COMUNICACIONAL
-# Trayectorias de PBI per cápita indexado por grupo
-# =============================================================================
+# GRÁFICO COMUNICACIONAL | PBI per cápita indexado por grupo
 
 benchmark_mundial <- datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
@@ -116,10 +111,9 @@ g1 <- ggplot(datos_grafico1, aes(x = anio, y = pbi_pc_idx, color = grupo)) +
 ggsave("output/graficos/grafico_comunicacional.png", g1,
        width = 10, height = 6, dpi = 300, bg = "white")
 
-# =============================================================================
+
 # GRÁFICO 2 — EXPLORATORIO
-# Scatter Gini vs. índice industrial con pares destacados
-# =============================================================================
+# Scatter Gini vs. índice industrial | Se agrega 2 pares más para evitar a China como outlier
 
 paises_destacados <- c("CHN", "KOR", "DEU", "ARG", "BRA", "ESP")
 
@@ -170,7 +164,8 @@ titulo_g2 <- sprintf(
 g2 <- ggplot() +
   geom_text(data = scatter_data2 %>% filter(!destacado),
             aes(x = pbi_indust_pc_idx, y = coef_gini, label = letra),
-            color = "gray80", size = 2.5, alpha = 0.6,
+            color = "gray60", size = 2.5, alpha = 0.8,
+            fontface = "bold",
             show.legend = FALSE) +
   geom_smooth(data = scatter_data2,
               aes(x = pbi_indust_pc_idx, y = coef_gini),
@@ -184,7 +179,7 @@ g2 <- ggplot() +
   geom_text(data = promedios,
             aes(x = pbi_indust_pc_idx, y = coef_gini,
                 color = par, label = letra),
-            size = 4.5, fontface = "bold",
+            size = 5, fontface = "bold",
             show.legend = FALSE) +
   geom_text_repel(
     data = promedios %>% filter(año_ref == 2023),
