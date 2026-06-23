@@ -2,8 +2,10 @@
 
 ## Integrantes
 
-- Luca Derosa (911165)
+
 - Martín Flores (905761)
+- Luca Derosa (911165)
+
 
 ## Objetivo
 
@@ -52,7 +54,8 @@ mi_trabajo/
 │   └── auxiliar_grupos.csv                # Clasificación de cada país por nivel de industrialización
 ├── output/
 │   ├── tablas/                            # Tablas de resultados exportadas por 03_analisis.R
-│   └── graficos/                          # Gráfico comunicacional y gráfico exploratorio
+│   ├── graficos/                          # Gráfico comunicacional y gráfico exploratorio
+│   └── Grupo_11_presentacion_final.pptx   # Presentación final del trabajo
 ├── script/
 │   ├── 01_descarga.R                      # Descarga de datos desde WDI y lectura de Argendata
 │   ├── 02_limpieza.R                      # Limpieza, renombrado y unión de las dos fuentes
