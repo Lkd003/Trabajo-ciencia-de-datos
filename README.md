@@ -2,8 +2,8 @@
 
 ## Integrantes
 
-- Luca Derosa (911165)
 - Martín Flores (905761)
+- Luca Derosa (911165)
 
 ## Objetivo
 
