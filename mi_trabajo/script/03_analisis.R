@@ -260,6 +260,27 @@ bind_cols(
 
 plot(ols_resultado, which = 1)
 
+
+# Robustez regresión OLS con y sin China
+
+ols_con_china <- lm(coef_gini ~ pbi_indust_pc_idx, data = datos_ols)
+ols_sin_china <- lm(coef_gini ~ pbi_indust_pc_idx,
+                    data = datos_ols %>% filter(codigo_pais != "CHN"))
+
+resumen_con <- summary(ols_con_china)
+resumen_sin <- summary(ols_sin_china)
+
+tibble(
+  muestra        = c("Con China", "Sin China"),
+  n              = c(nrow(datos_ols), nrow(datos_ols %>% filter(codigo_pais != "CHN"))),
+  coef_pendiente = c(coef(ols_con_china)[["pbi_indust_pc_idx"]],
+                     coef(ols_sin_china)[["pbi_indust_pc_idx"]]),
+  r_cuadrado     = c(resumen_con$r.squared, resumen_sin$r.squared),
+  p_valor        = c(resumen_con$coefficients["pbi_indust_pc_idx", "Pr(>|t|)"],
+                     resumen_sin$coefficients["pbi_indust_pc_idx", "Pr(>|t|)"])
+) %>%
+  write.csv("output/tablas/tabla_robustez_china_ols.csv", row.names = FALSE)
+
 # Datos faltantes x variable
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
