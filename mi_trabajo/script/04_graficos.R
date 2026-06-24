@@ -217,22 +217,38 @@ g2 <- ggplot() +
     box.padding = 0.5, nudge_y = 1.5,
     show.legend = FALSE
   ) +
-  annotate("text",
-           x = promedios %>%
-             filter(color_grupo == "Menos industrializado", año_ref == 2023) %>%
-             pull(pbi_indust_pc_idx),
-           y = promedios %>%
-             filter(color_grupo == "Menos industrializado", año_ref == 2023) %>%
-             pull(coef_gini) + 2.5,
-           label = "Arg + Bra", hjust = 0.5, size = 3,
-           fontface = "bold", color = owid_rojo) +
-  annotate("text",
-           x = promedios %>%
-             filter(color_grupo == "Más industrializado", año_ref == 2023) %>%
-             pull(pbi_indust_pc_idx) * 1.15,
-           y = promedios %>%
-             filter(color_grupo == "Más industrializado", año_ref == 2023) %>%
-             pull(coef_gini) + 2.5,
-           label = "Chn + Kor", hjust = 0, size = 3,
-           fontface = "bold", color = owid_azul) +
-  annotate("point", x = 400, y = 63, color = owid_azul, size = 3) +
+  annotate("text",  x = 500, y = 63,
+           label = "Chn + Kor (más industrializado)",
+           hjust = 0, size = 3, color = owid_azul) +
+  annotate("point", x = 400, y = 60, color = owid_rojo, size = 3) +
+  annotate("text",  x = 500, y = 60,
+           label = "Arg + Bra (menos industrializado)",
+           hjust = 0, size = 3, color = owid_rojo) +
+  scale_color_manual(
+    values = c(
+      "Más industrializado"   = owid_azul,
+      "Menos industrializado" = owid_rojo,
+      "Otros"                 = "gray80"
+    ),
+    guide = "none"
+  ) +
+  scale_x_log10(labels = scales::comma) +
+  scale_y_continuous(limits = c(25, 65), breaks = seq(25, 65, by = 10)) +
+  labs(
+    title    = titulo_g2,
+    subtitle = "Eje X: índice de PBI industrial per cápita (base 100 = 1970, escala log). Eje Y: coeficiente de Gini.<br>Las líneas conectan pares de países con perfil de industrialización similar, para ver su trayectoria conjunta.<br>**A** = 1970 · **B** = 1990 · **C** = 2010 · **D** = último año disponible.",
+    caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI).",
+    x = "Índice industrial per cápita (log)",
+    y = "Coeficiente de Gini"
+  ) +
+  theme_owid() +
+  theme(
+    legend.position = "none",
+    axis.title      = element_text(size = 9, color = "gray40")
+  )
+
+ggsave("output/graficos/grafico_exploratorio.png", g2,
+       width = 11, height = 7, dpi = 300, bg = "white")
+
+cat("\nGráficos guardados en output/graficos/:\n")
+list.files("output/graficos/")

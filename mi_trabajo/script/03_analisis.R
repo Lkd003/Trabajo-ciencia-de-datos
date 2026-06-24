@@ -2,22 +2,18 @@
 
 library(tidyverse)
 
-#lectura
 datos_panel <- read.csv("input/datos_panel.csv")
 
-# Países seleccionados 
+
 paises_seleccionados <- c("ARG","BRA","MEX","CHL","COL",
                           "USA","DEU","GBR","FRA","TUR",
                           "CHN","IDN","KOR","ESP","CRI")
 
+
 paises_repr <- c("CHN", "KOR", "ARG", "BRA")
 
 # CLASIFICACIÓN DE GRUPOS
-# Nivel de industrialización en 2023 (pbi_indust_pc, no el indice).
-# Antes se usaba la variacion 1970-2023, pero el profe marco que eso
-# compara crecimiento industrial con crecimiento del PBI total, lo cual
-# es medio circular porque la industria es parte del PBI. Por eso ahora
-# se clasifica por el nivel actual, no por cuanto crecio.
+# Se corrige x corte en 2023 (pbi_indust_pc, no el indice).
 
 nivel_industrial <- datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
@@ -33,12 +29,7 @@ panel_indexado <- datos_panel %>%
   left_join(nivel_industrial %>% select(codigo_pais, grupo),
             by = "codigo_pais")
 
-# ANALISIS DESCRIPTIVO
-# Estadisticas de las variables principales, en general y por grupo.
-# Esto faltaba (lo pidio el profe) y ademas habria permitido detectar
-# antes el problema de clasificacion: con el criterio viejo, paises
-# como EEUU o Francia con Gini relativamente alto caian en "menos
-# industrializado", lo cual ya hubiera sido raro de ver en esta tabla.
+# Estadisticas de las variables principales, en gral y x grupo
 
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados, anio == 2023) %>%
@@ -56,7 +47,8 @@ datos_panel %>%
   ) %>%
   write.csv("output/tablas/tabla_descriptiva_general.csv", row.names = FALSE)
 
-# Lo mismo pero separado por grupo, para los tres indicadores principales
+# Lo mismo pero separado por grupo, para los 3 indicadores principales
+
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados, anio == 2023) %>%
   left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
@@ -77,8 +69,8 @@ datos_panel %>%
   arrange(variable, grupo) %>%
   write.csv("output/tablas/tabla_descriptiva_por_grupo.csv", row.names = FALSE)
 
-# Estadisticas descriptivas del Gini, todas las observaciones del panel
-# (no solo 2023), que es lo que efectivamente se usa en la OLS
+# Descriptivas del Gini
+
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados, !is.na(coef_gini)) %>%
   summarise(
@@ -90,6 +82,42 @@ datos_panel %>%
     maximo  = max(coef_gini)
   ) %>%
   write.csv("output/tablas/tabla_descriptiva_gini.csv", row.names = FALSE)
+
+# Robustez: comparacion con y sin China
+
+
+bind_rows(
+  datos_panel %>%
+    filter(codigo_pais %in% paises_seleccionados, anio == 2023) %>%
+    left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
+    filter(!is.na(grupo)) %>%
+    group_by(grupo) %>%
+    summarise(
+      n          = n(),
+      media_pbi  = mean(pbi_pc, na.rm = TRUE),
+      media_ind  = mean(pbi_indust_pc, na.rm = TRUE),
+      media_gini = mean(coef_gini, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(muestra = "Con China"),
+  datos_panel %>%
+    filter(codigo_pais %in% paises_seleccionados,
+           codigo_pais != "CHN",
+           anio == 2023) %>%
+    left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
+    filter(!is.na(grupo)) %>%
+    group_by(grupo) %>%
+    summarise(
+      n          = n(),
+      media_pbi  = mean(pbi_pc, na.rm = TRUE),
+      media_ind  = mean(pbi_indust_pc, na.rm = TRUE),
+      media_gini = mean(coef_gini, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(muestra = "Sin China")
+) %>%
+  arrange(muestra, grupo) %>%
+  write.csv("output/tablas/tabla_robustez_china.csv", row.names = FALSE)
 
 # MÉTODO 1 — Indexación y trayectorias (H1)
 
@@ -144,10 +172,9 @@ descomposicion_resultados %>%
   arrange(grupo) %>%
   write.csv("output/tablas/tabla_residuos.csv", row.names = FALSE)
 
-# =============================================================================
+
 # MÉTODO 3A — Test de Welch (H1)
 # Compara medias de crecimiento del PBI per cápita entre grupos
-# =============================================================================
 
 crecimiento_pbi <- datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
@@ -160,7 +187,6 @@ crecimiento_pbi <- datos_panel %>%
             by = "codigo_pais") %>%
   filter(!is.na(crecimiento_pct), !is.na(grupo))
 
-# Estadísticas descriptivas por grupo
 crecimiento_pbi %>%
   group_by(grupo) %>%
   summarise(
@@ -174,13 +200,14 @@ crecimiento_pbi %>%
   write.csv("output/tablas/tabla_descriptiva_welch.csv", row.names = FALSE)
 
 # Test de Welch
-# Nota: Polonia excluida por falta de dato de PBI per cápita en 1970
+# Polonia excluida x falta de PBI pc 70
+
+
 welch_resultado <- t.test(crecimiento_pct ~ grupo,
                           data = crecimiento_pbi,
                           var.equal = FALSE)
 print(welch_resultado)
 
-# Supuesto de normalidad por grupo (exploratorio, n chico)
 shapiro.test(crecimiento_pbi$crecimiento_pct[crecimiento_pbi$grupo == "Más industrializado"])
 shapiro.test(crecimiento_pbi$crecimiento_pct[crecimiento_pbi$grupo == "Menos industrializado"])
 
@@ -197,13 +224,7 @@ tibble(
 ) %>%
   write.csv("output/tablas/tabla_welch.csv", row.names = FALSE)
 
-# =============================================================================
 # MÉTODO 3B — Regresión OLS (H2)
-# Variable independiente: nivel del indice industrial en cada año de
-# referencia (antes era variacion_idx fija de 1970-2023, ahora usamos
-# el valor real de pbi_indust_pc_idx en cada año, para mantener los
-# 4 puntos temporales por pais)
-# =============================================================================
 
 años_ref <- c(1970, 1990, 2010, 2023)
 
@@ -237,10 +258,9 @@ bind_cols(
   ) %>%
   write.csv("output/tablas/tabla_ols.csv", row.names = FALSE)
 
-# Chequeo de homocedasticidad (supuesto OLS)
 plot(ols_resultado, which = 1)
 
-# Datos faltantes por variable
+# Datos faltantes x variable
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
   summarise(across(c(pbi_pc, coef_gini, poblacion, exp_servicios, pbi_indust_pc_idx),
@@ -249,9 +269,7 @@ datos_panel %>%
   mutate(pct_faltantes = round(n_faltantes / nrow(datos_panel) * 100, 1)) %>%
   write.csv("output/tablas/tabla_faltantes.csv", row.names = FALSE)
 
-# Outliers por criterio IQR (China va a salir como outlier en industria,
-# se mantiene en el analisis porque no es error de medicion, es justo
-# el caso de industrializacion acelerada que el TP busca estudiar)
+# Outliers por criterio IQR
 datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
   select(pbi_indust_pc_idx, coef_gini, pbi_pc) %>%
@@ -268,7 +286,6 @@ datos_panel %>%
   ) %>%
   write.csv("output/tablas/tabla_outliers.csv", row.names = FALSE)
 
-# Confirmar archivos guardados
 cat("\nArchivos guardados en output/tablas/:\n")
 list.files("output/tablas/")
 
