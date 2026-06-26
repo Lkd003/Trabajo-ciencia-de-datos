@@ -1,4 +1,4 @@
-# 03_analisis.R
+# Analisis
 
 library(tidyverse)
 
@@ -84,38 +84,27 @@ datos_panel %>%
   write.csv("output/tablas/tabla_descriptiva_gini.csv", row.names = FALSE)
 
 # Robustez: comparacion con y sin China
+# Cada fila se duplica via pivot_longer con una bandera de inclusion.
+# filter(incluir) elimina China del escenario "sin China".
 
-
-bind_rows(
-  datos_panel %>%
-    filter(codigo_pais %in% paises_seleccionados, anio == 2023) %>%
-    left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
-    filter(!is.na(grupo)) %>%
-    group_by(grupo) %>%
-    summarise(
-      n          = n(),
-      media_pbi  = mean(pbi_pc, na.rm = TRUE),
-      media_ind  = mean(pbi_indust_pc, na.rm = TRUE),
-      media_gini = mean(coef_gini, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(muestra = "Con China"),
-  datos_panel %>%
-    filter(codigo_pais %in% paises_seleccionados,
-           codigo_pais != "CHN",
-           anio == 2023) %>%
-    left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
-    filter(!is.na(grupo)) %>%
-    group_by(grupo) %>%
-    summarise(
-      n          = n(),
-      media_pbi  = mean(pbi_pc, na.rm = TRUE),
-      media_ind  = mean(pbi_indust_pc, na.rm = TRUE),
-      media_gini = mean(coef_gini, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(muestra = "Sin China")
-) %>%
+datos_panel %>%
+  filter(codigo_pais %in% paises_seleccionados, anio == 2023) %>%
+  left_join(nivel_industrial %>% select(codigo_pais, grupo), by = "codigo_pais") %>%
+  filter(!is.na(grupo)) %>%
+  mutate(con_china = TRUE,
+         sin_china = codigo_pais != "CHN") %>%
+  pivot_longer(cols = c(con_china, sin_china),
+               names_to = "muestra", values_to = "incluir") %>%
+  filter(incluir) %>%
+  mutate(muestra = if_else(muestra == "con_china", "Con China", "Sin China")) %>%
+  group_by(muestra, grupo) %>%
+  summarise(
+    n          = n(),
+    media_pbi  = mean(pbi_pc, na.rm = TRUE),
+    media_ind  = mean(pbi_indust_pc, na.rm = TRUE),
+    media_gini = mean(coef_gini, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
   arrange(muestra, grupo) %>%
   write.csv("output/tablas/tabla_robustez_china.csv", row.names = FALSE)
 
@@ -148,17 +137,12 @@ trayectorias %>%
 
 descomposicion_resultados <- datos_panel %>%
   filter(codigo_pais %in% paises_repr, !is.na(pbi_pc)) %>%
+  arrange(codigo_pais, anio) %>%
   group_by(codigo_pais, pais) %>%
-  arrange(anio) %>%
-  group_modify(~ {
-    tendencia <- as.numeric(fitted(loess(pbi_pc ~ anio, data = .x, span = 0.3)))
-    tibble(
-      anio      = .x$anio,
-      pbi_pc    = .x$pbi_pc,
-      tendencia = tendencia,
-      residuo   = .x$pbi_pc - tendencia
-    )
-  }) %>%
+  mutate(
+    tendencia = as.numeric(fitted(loess(pbi_pc ~ anio, span = 0.3))),
+    residuo   = pbi_pc - tendencia
+  ) %>%
   ungroup() %>%
   left_join(nivel_industrial %>% select(codigo_pais, grupo),
             by = "codigo_pais")
@@ -211,7 +195,7 @@ print(welch_resultado)
 shapiro.test(crecimiento_pbi$crecimiento_pct[crecimiento_pbi$grupo == "Más industrializado"])
 shapiro.test(crecimiento_pbi$crecimiento_pct[crecimiento_pbi$grupo == "Menos industrializado"])
 
-tibble(
+data.frame(
   estadistico     = welch_resultado$statistic,
   p_valor         = welch_resultado$p.value,
   ic_inf          = welch_resultado$conf.int[1],
@@ -228,12 +212,17 @@ tibble(
 
 años_ref <- c(1970, 1990, 2010, 2023)
 
-gini_temporal <- datos_panel %>%
-  filter(codigo_pais %in% paises_seleccionados) %>%
-  filter(!is.na(coef_gini)) %>%
-  crossing(año_ref = años_ref) %>%
+# Se arma un data.frame con los 4 años de referencia para cada país,
+# buscando el gini mas cercano disponible.
+gini_temporal <- data.frame(año_ref = rep(años_ref, each = length(paises_seleccionados)),
+                            codigo_pais = rep(paises_seleccionados, times = length(años_ref))) %>%
+  left_join(datos_panel %>%
+              filter(codigo_pais %in% paises_seleccionados, !is.na(coef_gini)) %>%
+              select(codigo_pais, pais, anio, coef_gini),
+            by = "codigo_pais",
+            relationship = "many-to-many") %>%
   mutate(distancia = abs(anio - año_ref)) %>%
-  group_by(codigo_pais, pais, año_ref) %>%
+  group_by(codigo_pais, año_ref) %>%
   slice_min(distancia, n = 1, with_ties = FALSE) %>%
   ungroup() %>%
   select(codigo_pais, pais, año_ref, anio_real = anio, coef_gini)
@@ -247,15 +236,17 @@ print(summary(ols_resultado))
 
 resumen_ols <- summary(ols_resultado)
 
-bind_cols(
-  as.data.frame(confint(ols_resultado)) %>% rownames_to_column("termino"),
-  tibble(estimacion = coef(ols_resultado))
+ic <- confint(ols_resultado)
+
+data.frame(
+  termino        = rownames(ic),
+  ic_inf         = ic[, 1],
+  ic_sup         = ic[, 2],
+  estimacion     = coef(ols_resultado),
+  r_cuadrado     = resumen_ols$r.squared,
+  r_cuadrado_adj = resumen_ols$adj.r.squared,
+  p_valor        = resumen_ols$coefficients[, "Pr(>|t|)"]
 ) %>%
-  mutate(
-    r_cuadrado     = resumen_ols$r.squared,
-    r_cuadrado_adj = resumen_ols$adj.r.squared,
-    p_valor        = resumen_ols$coefficients[, "Pr(>|t|)"]
-  ) %>%
   write.csv("output/tablas/tabla_ols.csv", row.names = FALSE)
 
 plot(ols_resultado, which = 1)
@@ -270,7 +261,7 @@ ols_sin_china <- lm(coef_gini ~ pbi_indust_pc_idx,
 resumen_con <- summary(ols_con_china)
 resumen_sin <- summary(ols_sin_china)
 
-tibble(
+data.frame(
   muestra        = c("Con China", "Sin China"),
   n              = c(nrow(datos_ols), nrow(datos_ols %>% filter(codigo_pais != "CHN"))),
   coef_pendiente = c(coef(ols_con_china)[["pbi_indust_pc_idx"]],
@@ -310,7 +301,22 @@ datos_panel %>%
 cat("\nArchivos guardados en output/tablas/:\n")
 list.files("output/tablas/")
 
+# Criterio viejo de clasificación (variación del índice industrial entre 1970 y 2023)
+variacion_industrial <- datos_panel %>%
+  filter(codigo_pais %in% paises_seleccionados) %>%
+  filter(anio %in% c(1970, 2023)) %>%
+  select(codigo_pais, pais, anio, pbi_indust_pc_idx) %>%
+  pivot_wider(names_from = anio, values_from = pbi_indust_pc_idx, names_prefix = "idx_") %>%
+  mutate(
+    variacion_idx = idx_2023 - idx_1970,
+    grupo = if_else(variacion_idx >= median(variacion_idx, na.rm = TRUE),
+                    "Más industrializado", "Menos industrializado")
+  ) %>%
+  select(codigo_pais, pais, grupo)
+
 #escritura de archivos
 write.csv(panel_indexado, "input/panel_indexado.csv", row.names = FALSE)
 write.csv(nivel_industrial, "auxiliar/auxiliar_grupos.csv", row.names = FALSE)
+write.csv(variacion_industrial, "auxiliar/auxiliar_grupos_viejo.csv", row.names = FALSE)
 write.csv(gini_temporal, "input/gini_temporal.csv", row.names = FALSE)
+

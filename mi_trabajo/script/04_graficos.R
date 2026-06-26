@@ -1,14 +1,9 @@
-# =============================================================================
-# 04_graficos.R
-# Gráfico comunicacional y exploratorio
-# Ciencia de Datos — Grupo 11
-# =============================================================================
 
 library(tidyverse)
 library(ggtext)
 library(ggrepel)
 
-# ── Paleta y tema ─────────────────────────────────────────────────────────────
+
 owid_azul <- "#4C6A9C"
 owid_rojo <- "#B13507"
 owid_gris <- "#C9C9C9"
@@ -18,10 +13,10 @@ theme_owid <- function(base_size = 13) {
     theme(
       plot.title.position   = "plot",
       plot.caption.position = "plot",
-      plot.title    = element_markdown(face = "bold", size = rel(1.3),
+      plot.title    = element_markdown(face = "bold", size = rel(1.65),
                                        colour = "#1d1d1d", lineheight = 1.2,
-                                       margin = margin(b = 4)),
-      plot.subtitle = element_markdown(size = rel(0.98), colour = "#5b5b5b",
+                                       margin = margin(b = 6)),
+      plot.subtitle = element_markdown(size = rel(0.85), colour = "#5b5b5b",
                                        margin = margin(b = 16)),
       plot.caption  = element_markdown(hjust = 0, size = rel(0.72),
                                        colour = "#8a8a8a", margin = margin(t = 14)),
@@ -36,23 +31,22 @@ theme_owid <- function(base_size = 13) {
     )
 }
 
-# ── Datos base (usa lo generado en 03_analisis.R) ─────────────────────────────
-datos_panel      <- read.csv("input/datos_panel.csv")
-nivel_industrial <- read.csv("auxiliar/auxiliar_grupos.csv")
-gini_temporal    <- read.csv("input/gini_temporal.csv")
+# Aca tuve que meter el auxiliar con el metodo viejo
+
+datos_panel            <- read.csv("input/datos_panel.csv")
+nivel_industrial       <- read.csv("auxiliar/auxiliar_grupos.csv")
+nivel_industrial_viejo <- read.csv("auxiliar/auxiliar_grupos_viejo.csv")
+gini_temporal          <- read.csv("input/gini_temporal.csv")
 
 paises_seleccionados <- c("ARG","BRA","MEX","CHL","COL",
                           "USA","DEU","GBR","FRA","TUR",
                           "CHN","IDN","KOR","ESP","CRI")
 
 panel_indexado <- datos_panel %>%
-  left_join(nivel_industrial %>% select(codigo_pais, grupo),
+  left_join(nivel_industrial_viejo %>% select(codigo_pais, grupo),
             by = "codigo_pais")
 
-# =============================================================================
 # GRÁFICO 1 — COMUNICACIONAL
-# Trayectorias de PBI per cápita indexado por grupo
-# =============================================================================
 
 benchmark_mundial <- datos_panel %>%
   filter(codigo_pais %in% paises_seleccionados) %>%
@@ -121,17 +115,14 @@ g1 <- ggplot(datos_grafico1, aes(x = anio, y = pbi_pc_idx, color = grupo)) +
   labs(
     title    = titulo_g1,
     subtitle = "PBI per cápita indexado (base 100 = 1970). Promedio simple por grupo de países.",
-    caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI).<br>Grupos definidos por nivel del índice de PBI industrial per cápita en 2023."
+    caption  = "Fuente: Argendata (Fundar) y Banco Mundial (WDI).<br>Grupos definidos según variación del índice de PBI industrial per cápita 1970-2023."
   ) +
   theme_owid()
 
 ggsave("output/graficos/grafico_comunicacional.png", g1,
        width = 10, height = 6, dpi = 300, bg = "white")
 
-# =============================================================================
 # GRÁFICO 2 — EXPLORATORIO
-# Scatter Gini vs. índice industrial con pares destacados
-# =============================================================================
 
 paises_destacados <- c("CHN", "KOR", "ARG", "BRA")
 
@@ -193,9 +184,9 @@ g2 <- ggplot() +
               method = "lm", se = TRUE,
               color = "gray50", fill = "gray90",
               linewidth = 0.7, linetype = "dashed") +
+  
   # geom_path en vez de geom_line: respeta el orden A-B-C-D de las filas
-  # sin reordenar por el valor del eje X (necesario porque el indice
-  # industrial no crece de forma monotona en el tiempo para algunos paises)
+  
   geom_path(data = promedios,
             aes(x = pbi_indust_pc_idx, y = coef_gini,
                 color = color_grupo, group = color_grupo),
