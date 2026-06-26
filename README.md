@@ -27,7 +27,7 @@ La clasificación de los países en los grupos "más industrializado" y "menos i
 
 1. **Descarga** de los datos de WDI mediante API y de la base de Argendata, almacenados sin modificaciones en `raw/`.
 2. **Limpieza y unión** de ambas fuentes: filtrado de los 15 países seleccionados en cada fuente por separado, renombrado de variables y unión por país y año, generando el panel consolidado en `input/`.
-3. **Clasificación de países** según el nivel del PBI industrial per cápita en 2023, dividiendo la muestra en dos grupos a partir de la mediana.
+3. **Clasificación de países** según el nivel del PBI industrial per cápita en 2023, dividiendo la muestra en dos grupos a partir de la mediana. Se conserva además, a fines de trazabilidad, el criterio de clasificación de una instancia previa (por variación del índice 1970–2023), utilizado únicamente por el gráfico comunicacional según se detalla en la sección de limitaciones conocidas.
 4. **Estadísticas descriptivas** generales, por grupo de industrialización y específicas del coeficiente de Gini sobre el panel completo.
 5. **Diagnóstico de datos faltantes y outliers**: identificación de valores faltantes por variable y detección de valores atípicos mediante el criterio de rango intercuartílico. Se evalúa además el efecto de excluir a China sobre las estadísticas descriptivas y sobre la regresión que responde a la hipótesis complementaria, como evidencia de que la decisión de mantenerla en el análisis responde a un criterio conceptual y no a una conveniencia estadística.
 6. **Análisis descriptivo de trayectorias** (Método 1): indexación del PBI per cápita a base 100 en 1970 y comparación gráfica entre grupos.
@@ -46,10 +46,11 @@ mi_trabajo/
 │   └── pib_indust_per_capita_comparado.csv # Base de Argendata (Fundar)
 ├── input/                                 # Datos procesados, listos para el análisis
 │   ├── datos_panel.csv                    # Panel consolidado (WDI + Argendata)
-│   ├── panel_indexado.csv                 # Panel con la columna de grupo de industrialización
+│   ├── panel_indexado.csv                 # Panel con la columna de grupo de industrialización (criterio por nivel)
 │   └── gini_temporal.csv                  # Gini por país en los años de referencia
 ├── auxiliar/
-│   └── auxiliar_grupos.csv                # Clasificación de cada país por nivel de industrialización
+│   ├── auxiliar_grupos.csv                # Clasificación vigente de cada país, por nivel de industrialización
+│   └── auxiliar_grupos_viejo.csv          # Clasificación de una instancia previa, por variación del índice (ver limitaciones conocidas)
 ├── output/
 │   ├── tablas/                            # Tablas de resultados exportadas por 03_analisis.R
 │   ├── graficos/                          # Gráfico comunicacional y gráfico exploratorio
@@ -78,10 +79,14 @@ Abrir el proyecto desde `mi_trabajo/mi_trabajo.Rproj`, de modo que el directorio
 
 1. `script/01_descarga.R` — Descarga los datos desde la API de WDI y guarda la base cruda en `raw/wdi_raw.csv`. Requiere conexión a internet.
 2. `script/02_limpieza.R` — Lee las bases de `raw/`, filtra los 15 países seleccionados, renombra variables y genera el panel consolidado en `input/datos_panel.csv`.
-3. `script/03_analisis.R` — Lee `input/datos_panel.csv`, clasifica a los países según su nivel de industrialización, calcula estadísticas descriptivas, diagnostica datos faltantes y outliers, evalúa el efecto de excluir a China sobre las estadísticas y sobre la regresión, y ejecuta el test de Welch y la regresión OLS. Genera las tablas de `output/tablas/` (incluyendo `tabla_comparacion_con_sin_china.csv` y `tabla_comparacion_ols_china.csv`), además de `input/panel_indexado.csv`, `input/gini_temporal.csv` y `auxiliar/auxiliar_grupos.csv`.
+3. `script/03_analisis.R` — Lee `input/datos_panel.csv`, clasifica a los países según su nivel de industrialización, calcula estadísticas descriptivas, diagnostica datos faltantes y outliers, evalúa el efecto de excluir a China sobre las estadísticas descriptivas y sobre la regresión OLS, y ejecuta el test de Welch y la regresión OLS. Genera las tablas de `output/tablas/` (incluyendo `tabla_robustez_china.csv` y `tabla_robustez_china_ols.csv`), además de `input/panel_indexado.csv`, `input/gini_temporal.csv`, `auxiliar/auxiliar_grupos.csv` y `auxiliar/auxiliar_grupos_viejo.csv`.
 4. `script/04_graficos.R` — Lee los archivos generados por el paso anterior y construye las dos visualizaciones del trabajo en `output/graficos/`.
 
 Cada script guarda sus resultados en disco y el siguiente los lee desde archivo, por lo que pueden ejecutarse en sesiones de R independientes, siempre respetando el orden indicado la primera vez que se corre el pipeline completo.
+
+## Limitaciones conocidas
+
+El gráfico comunicacional (Método 1, `output/graficos/grafico_comunicacional.png`) clasifica a los países utilizando el criterio de una instancia previa del trabajo, por variación del índice de PBI industrial per cápita entre 1970 y 2023, en lugar del criterio vigente por nivel del índice en 2023. Esta decisión se mantiene por motivos de diseño visual y no fue actualizada al criterio corregido. Como consecuencia, este gráfico en particular puede mostrar un patrón distinto al que se desprende de la tabla de trayectorias y del resto del análisis, que sí utilizan el criterio vigente. Esta diferencia se documenta y se explica en detalle en la presentación final del trabajo.
 
 ## Conclusiones principales
 
